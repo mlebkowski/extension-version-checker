@@ -57,21 +57,38 @@ check_edge() {
 }
 
 main() {
-  for check in "$@"; do
+  local table=""
+  local -a checks
+
+  for argument in "$@"; do
+    case "$argument" in
+      "--table")
+        table=$'\t'
+        ;;
+      *)
+        checks+=("$argument")
+        ;;
+    esac
+  done
+
+  for check in "${checks[@]}"; do
     case "$check" in
       chrome=*)
         local extensionId="${check#'chrome='}"
         echo -n "Checking $(in_yellow $extensionId) in Google Chrome store... "
+        echo -n "$table"
         in_green "$(check_chrome "$extensionId")"
         ;;
       edge=*)
         local extensionId="${check#'edge='}"
         echo -n "Checking $(in_yellow $extensionId) in Microsoft Edge store... "
+        echo -n "$table"
         in_green "$(check_edge "$extensionId")"
         ;;
       firefox=*)
         local name="${check#'firefox='}"
         echo -n "Checking $(in_yellow $name) in Firefox store... "
+        echo -n "$table"
         in_green "$(check_firefox "$name")"
         ;;
       *)
@@ -83,8 +100,14 @@ main() {
         } >&2
         return 1;
         ;;
-    esac 
-  done
+    esac
+  done | {
+      if [ -n "$table" ]; then
+        column -t -s"$table"
+      else
+        cat
+      fi
+  }
 }
 
 main "$@"

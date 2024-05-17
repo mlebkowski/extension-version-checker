@@ -3,8 +3,10 @@
 ## Usage
 
 ```sh
-./version-checker <edge=...> <chrome=...> <firefox=...>
+./version-checker [--table] <edge=...> <chrome=...> <firefox=...>
 ```
+
+`--table` output is nicer, but blocks rendering until all versions are checked
 
 ## Example
 

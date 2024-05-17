@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+get_latest_chrome_version() {
+  curl --silent "https://chromiumdash.appspot.com/fetch_releases?channel=Stable&platform=Mac&num=1" \
+    | jq -r '.[]|.version'
+}
+
+get_chrome_payload() {
+  jq -n --arg appid $1 --arg prodversion "$(get_latest_chrome_version)" '
+  {
+    "request": {
+      "acceptformat": "crx3",
+      "app": [
+        {
+          "updatecheck": {},
+          "version": "0.0.0",
+          $appid
+        }
+      ],
+      $prodversion,
+      "protocol": "3.1"
+    }
+  }
+  '
+}
+
+in_green() {
+  echo -ne '\033[0;32m'
+  echo -n "$@"
+  echo -e '\033[0m'
+}
+
+in_yellow() {
+  echo -ne '\033[0;33m'
+  echo -n "$@"
+  echo -e '\033[0m'
+}
+
+check_chrome () {
+  declare appid="$1"
+  curl 'https://update.googleapis.com/service/update2/json' -X POST --data-raw "$(get_chrome_payload $appid)" --silent \
+    | tail -1 | jq -r .response.app[0].updatecheck.manifest.version
+}
+
+check_firefox() {
+  declare name="$1"
+  curl --silent "https://addons.mozilla.org/api/v5/addons/addon/$name/versions/" \
+    | jq -r '.results[0].version'
+}
+
+check_edge() {
+  declare extensionId="$1"
+  curl --silent "https://microsoftedge.microsoft.com/addons/getproductdetailsbycrxid/$extensionId" \
+    | jq -r .version
+}
+
+main() {
+  for check in "$@"; do
+    case "$check" in
+      chrome=*)
+        local extensionId="${check#'chrome='}"
+        echo -n "Checking $(in_yellow $extensionId) in Google Chrome store... "
+        in_green "$(check_chrome "$extensionId")"
+        ;;
+      edge=*)
+        local extensionId="${check#'edge='}"
+        echo -n "Checking $(in_yellow $extensionId) in Microsoft Edge store... "
+        in_green "$(check_edge "$extensionId")"
+        ;;
+      firefox=*)
+        local name="${check#'firefox='}"
+        echo -n "Checking $(in_yellow $name) in Firefox store... "
+        in_green "$(check_firefox "$name")"
+        ;;
+      *)
+        {
+          echo "Unknown version check: $check. Allowed formats:"
+          echo " - chrome=extensionId"
+          echo " - firefox=extension name"
+          echo " - edge=extensionId"
+        } >&2
+        return 1;
+        ;;
+    esac 
+  done
+}
+
+main "$@"
